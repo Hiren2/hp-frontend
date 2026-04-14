@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useCart } from "../context/CartContext";
-import api from "../api/api";
+import api from "../utils/api"; // 🔥 Ensure this path points to your API instance
 import { useNavigate } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import Toast from "../components/Toast";
@@ -17,10 +17,10 @@ export default function Checkout() {
   const [method, setMethod] = useState("");
   const [loading, setLoading] = useState(false);
   
-  // 🔥 UPI STATE MANAGEMENT (Amazon Style)
+  // 🔥 UPI STATE MANAGEMENT
   const [upiId, setUpiId] = useState("");
-  const [upiState, setUpiState] = useState("input"); // "input" | "verifying" | "waiting"
-  const [timer, setTimer] = useState(300); // 5 Minutes
+  const [upiState, setUpiState] = useState("input");
+  const [timer, setTimer] = useState(300); 
 
   const [couponInput, setCouponInput] = useState("");
   const [showOffersModal, setShowOffersModal] = useState(false);
@@ -40,8 +40,6 @@ export default function Checkout() {
         const couponRes = await api.get("/coupons/active");
         if (couponRes.data && Array.isArray(couponRes.data)) {
           setLiveOffers(couponRes.data);
-        } else {
-            console.warn("Invalid coupon data format received");
         }
       } catch (error) {
         console.warn("Failed to load live coupons or order history.");
@@ -84,15 +82,15 @@ export default function Checkout() {
   const delivery = discountedSubtotal === 0 ? 0 : discountedSubtotal > 1000 ? 0 : 49;
   const total = discountedSubtotal + tax + delivery;
 
-  // 🔥 5 MINUTE TIMER LOGIC FOR UPI
+  // 🔥 5 MINUTE TIMER
   useEffect(() => {
     if (upiState !== "waiting") return;
-    setTimer(300); // Reset to 5 mins
+    setTimer(300);
     const t = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) { 
           clearInterval(t); 
-          setUpiState("input"); // Timeout ho gaya toh wapas input pe le jao
+          setUpiState("input"); 
           showToast("UPI Request Expired. Please try again. ⏳", "error");
           return 0; 
         }
@@ -102,6 +100,7 @@ export default function Checkout() {
     return () => clearInterval(t);
   }, [upiState]);
 
+  // ✅ ADDRESS VALIDATION LOGIC
   const isAddressValid = address.fullName.trim().length > 2 && address.phone.length === 10 && address.street.trim() !== "" && address.city.trim() !== "" && address.state.trim() !== "" && address.pincode.length >= 6;
 
   const isValidExpiry = (exp) => {
@@ -138,10 +137,7 @@ export default function Checkout() {
 
   const handleApplyCoupon = (codeToApply) => {
     const code = codeToApply || couponInput;
-    if (!code) {
-      showToast("Please enter a coupon code", "error");
-      return;
-    }
+    if (!code) { showToast("Please enter a coupon code", "error"); return; }
     
     if (code.toUpperCase() === "WELCOME100" && !isFirstOrder) {
       showToast("WELCOME100 is only valid for your first ever order! ❌", "error");
@@ -153,13 +149,11 @@ export default function Checkout() {
     if (validCoupon) {
       if (validCoupon.applicableCategory && validCoupon.applicableCategory.toLowerCase() !== "all") {
         const hasEligibleItem = cart.some(item => item.category && item.category.toLowerCase() === validCoupon.applicableCategory.toLowerCase());
-        
         if (!hasEligibleItem) {
           showToast(`This coupon is only valid for '${validCoupon.applicableCategory}' services ❌`, "error");
           return;
         }
       }
-
       setAppliedCoupon(validCoupon);
       setCouponInput("");
       setShowOffersModal(false);
@@ -174,8 +168,12 @@ export default function Checkout() {
     showToast("Coupon removed", "success");
   };
 
-  // 🔥 HANDLE UPI VERIFICATION
+  // 🔥 UPDATED: UPI VERIFICATION WITH STRICT ADDRESS CHECK
   const handleVerifyUpi = () => {
+    if (!isAddressValid) {
+      showToast("Pehle delivery details (Address) fill karo! 🏠", "error");
+      return;
+    }
     if (!upiId.includes('@') || upiId.length < 5) {
       showToast("Please enter a valid UPI ID (e.g. name@bank) ❌", "error");
       return;
@@ -184,14 +182,13 @@ export default function Checkout() {
     setTimeout(() => {
       setUpiState("waiting");
       showToast("UPI Verified! Payment Request Sent ✅", "success");
-    }, 1500); // 1.5 seconds loading effect
+    }, 1500); 
   };
 
   const initiatePayment = () => {
     if (!isAddressValid) { showToast("Please provide complete valid address details 🏠", "error"); return; }
     if (!method) { showToast("Select a payment method 💳", "error"); return; }
     
-    // 🔥 UPI Check
     if (method === "upi" && upiState !== "waiting") { 
         showToast("Please Verify your UPI ID first to send a request! 📱", "error"); 
         return; 
@@ -249,16 +246,13 @@ export default function Checkout() {
   return (
     <>
       <Toast message={toast.message} type={toast.type} />
-
       <div className="max-w-7xl mx-auto mt-8 px-4 pb-12 font-sans antialiased animate-fadeIn">
-        
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Secure Checkout</h1>
           <p className="text-slate-500 font-medium">Finalize your request and get started instantly.</p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[1.5rem] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
               <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -286,7 +280,6 @@ export default function Checkout() {
                 <PaymentOption value="cod" current={method} set={setMethod} label="Cash on Delivery" icon={<Truck />} />
               </div>
 
-              {/* 🔥 NEW AMAZON STYLE UPI COMPONENT */}
               {method === "upi" && (
                 <div className="mt-8 p-6 bg-slate-50/50 rounded-2xl border border-slate-200 animate-fadeIn">
                   <div className="flex items-center justify-between mb-6">
@@ -421,7 +414,6 @@ export default function Checkout() {
               <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <Receipt className="text-purple-600" size={20} /> Order Summary
               </h2>
-
               <div className="space-y-4 max-h-[200px] overflow-y-auto mb-6 pr-2 custom-scrollbar">
                 {cart.map((i) => (
                   <div key={i._id} className="flex justify-between items-center text-sm">
@@ -514,7 +506,6 @@ export default function Checkout() {
               </button>
             </div>
           </div>
-
         </div>
       </div>
 

@@ -16,8 +16,11 @@ export default function Checkout() {
 
   const [method, setMethod] = useState("");
   const [loading, setLoading] = useState(false);
-  const [qrVisible, setQrVisible] = useState(false);
-  const [timer, setTimer] = useState(120);
+  
+  // 🔥 UPI STATE MANAGEMENT (Amazon Style)
+  const [upiId, setUpiId] = useState("");
+  const [upiState, setUpiState] = useState("input"); // "input" | "verifying" | "waiting"
+  const [timer, setTimer] = useState(300); // 5 Minutes
 
   const [couponInput, setCouponInput] = useState("");
   const [showOffersModal, setShowOffersModal] = useState(false);
@@ -35,7 +38,6 @@ export default function Checkout() {
         }
 
         const couponRes = await api.get("/coupons/active");
-        // 🔥 FIX: Ensure we are setting a valid array
         if (couponRes.data && Array.isArray(couponRes.data)) {
           setLiveOffers(couponRes.data);
         } else {
@@ -82,17 +84,23 @@ export default function Checkout() {
   const delivery = discountedSubtotal === 0 ? 0 : discountedSubtotal > 1000 ? 0 : 49;
   const total = discountedSubtotal + tax + delivery;
 
+  // 🔥 5 MINUTE TIMER LOGIC FOR UPI
   useEffect(() => {
-    if (!qrVisible) return;
-    setTimer(120);
+    if (upiState !== "waiting") return;
+    setTimer(300); // Reset to 5 mins
     const t = setInterval(() => {
       setTimer((prev) => {
-        if (prev <= 1) { clearInterval(t); return 0; }
+        if (prev <= 1) { 
+          clearInterval(t); 
+          setUpiState("input"); // Timeout ho gaya toh wapas input pe le jao
+          showToast("UPI Request Expired. Please try again. ⏳", "error");
+          return 0; 
+        }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(t);
-  }, [qrVisible]);
+  }, [upiState]);
 
   const isAddressValid = address.fullName.trim().length > 2 && address.phone.length === 10 && address.street.trim() !== "" && address.city.trim() !== "" && address.state.trim() !== "" && address.pincode.length >= 6;
 
@@ -166,11 +174,29 @@ export default function Checkout() {
     showToast("Coupon removed", "success");
   };
 
+  // 🔥 HANDLE UPI VERIFICATION
+  const handleVerifyUpi = () => {
+    if (!upiId.includes('@') || upiId.length < 5) {
+      showToast("Please enter a valid UPI ID (e.g. name@bank) ❌", "error");
+      return;
+    }
+    setUpiState("verifying");
+    setTimeout(() => {
+      setUpiState("waiting");
+      showToast("UPI Verified! Payment Request Sent ✅", "success");
+    }, 1500); // 1.5 seconds loading effect
+  };
+
   const initiatePayment = () => {
     if (!isAddressValid) { showToast("Please provide complete valid address details 🏠", "error"); return; }
     if (!method) { showToast("Select a payment method 💳", "error"); return; }
-    if (method === "upi" && !qrVisible) { setQrVisible(true); return; }
-    if (method === "upi" && timer === 0) { showToast("QR Code expired! Regenerate? ❌", "error"); setQrVisible(false); return; }
+    
+    // 🔥 UPI Check
+    if (method === "upi" && upiState !== "waiting") { 
+        showToast("Please Verify your UPI ID first to send a request! 📱", "error"); 
+        return; 
+    }
+    
     if (method === "card" && !isCardValid) { showToast("Invalid Card Details. Check Number, Expiry, or CVV 🔒", "error"); return; }
 
     if (method === "cod") {
@@ -260,6 +286,96 @@ export default function Checkout() {
                 <PaymentOption value="cod" current={method} set={setMethod} label="Cash on Delivery" icon={<Truck />} />
               </div>
 
+              {/* 🔥 NEW AMAZON STYLE UPI COMPONENT */}
+              {method === "upi" && (
+                <div className="mt-8 p-6 bg-slate-50/50 rounded-2xl border border-slate-200 animate-fadeIn">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold text-slate-700">Pay via UPI</h3>
+                    <div className="flex gap-2">
+                      <div className="w-8 h-5 bg-green-600 rounded flex items-center justify-center text-[8px] text-white font-bold tracking-widest">UPI</div>
+                    </div>
+                  </div>
+
+                  {upiState === "input" && (
+                    <div className="space-y-6">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Enter UPI ID</label>
+                        <div className="flex flex-col sm:flex-row gap-3 w-full">
+                          <input 
+                            type="text" 
+                            value={upiId} 
+                            onChange={(e) => setUpiId(e.target.value.toLowerCase())} 
+                            placeholder="e.g. hiren@okicici" 
+                            className="flex-1 bg-white border border-slate-200 px-4 py-3.5 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm font-semibold"
+                          />
+                          <button 
+                            onClick={handleVerifyUpi} 
+                            className="px-8 py-3.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-sm transition-colors shadow-lg shadow-slate-900/20"
+                          >
+                            Verify & Pay
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="relative flex items-center py-4">
+                        <div className="flex-grow border-t border-slate-200"></div>
+                        <span className="flex-shrink-0 mx-4 text-slate-400 text-xs font-bold uppercase tracking-widest">OR</span>
+                        <div className="flex-grow border-t border-slate-200"></div>
+                      </div>
+
+                      <div className="text-center bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <p className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">Scan to Pay Instantly</p>
+                        <div className="inline-block p-2 border-2 border-slate-100 rounded-xl">
+                          <QRCodeCanvas value={`upi://pay?pa=demo@upi&pn=H&P Solutions&am=${total}`} size={140} className="rounded-lg"/>
+                        </div>
+                        <div className="mt-4 flex items-center justify-center gap-2">
+                           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                           <span className="text-[10px] font-bold text-slate-400">QR Code is active</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {upiState === "verifying" && (
+                    <div className="py-12 text-center animate-pulse">
+                      <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-4" />
+                      <p className="font-bold text-slate-600 text-lg">Verifying UPI ID...</p>
+                      <p className="text-xs text-slate-400 mt-1">Connecting to bank servers</p>
+                    </div>
+                  )}
+
+                  {upiState === "waiting" && (
+                    <div className="text-center py-6 animate-fadeIn">
+                      <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-5 relative">
+                        <Smartphone size={40} className="animate-bounce" />
+                        <span className="absolute top-0 right-0 w-5 h-5 bg-green-500 border-2 border-white rounded-full flex items-center justify-center text-white text-[10px]">1</span>
+                      </div>
+                      <h3 className="font-black text-2xl text-slate-800 mb-2">Approve Payment</h3>
+                      <p className="text-sm font-medium text-slate-600 mb-1">A request of <strong>₹{total}</strong> has been sent to</p>
+                      <p className="text-md font-bold text-indigo-600 mb-6 bg-indigo-50 inline-block px-4 py-1.5 rounded-full">{upiId}</p>
+                      
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 max-w-xs mx-auto relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-indigo-100">
+                           <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${(timer / 300) * 100}%` }}></div>
+                        </div>
+                        <div className="text-4xl font-mono font-black text-slate-800 mb-1">
+                          {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Time Remaining</p>
+                        <p className="text-xs text-slate-500 mt-4 leading-relaxed">Open your UPI app (GPay, PhonePe, Paytm, etc.) and enter your PIN to approve.</p>
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-6 mt-2">
+                        <p className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">Having trouble? Scan alternate QR</p>
+                        <div className="bg-white p-2 rounded-xl shadow-sm inline-block border border-slate-100">
+                          <QRCodeCanvas value={`upi://pay?pa=${upiId}&pn=H&P Solutions&am=${total}`} size={100} className="rounded-lg"/>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {method === "card" && (
                 <div className="mt-8 p-6 bg-slate-50/50 rounded-2xl border border-slate-200 animate-fadeIn">
                   <div className="flex items-center justify-between mb-4">
@@ -294,18 +410,6 @@ export default function Checkout() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Name on Card</label>
                       <input type="text" value={cardDetails.name} onChange={handleCardNameChange} placeholder="e.g. JOHN DOE" className="w-full bg-white border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm font-semibold" />
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {method === "upi" && qrVisible && (
-                <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center flex flex-col items-center animate-fadeIn">
-                  <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
-                    <QRCodeCanvas value={`upi://pay?pa=demo@upi&pn=H&P Solutions&am=${total}`} size={160} className="rounded-lg"/>
-                  </div>
-                  <p className="text-sm font-bold text-slate-700">Scan to pay ₹{total}</p>
-                  <div className={`mt-2 text-xs font-mono font-bold px-3 py-1 rounded-full ${timer < 30 ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>
-                    ⏳ Link expires in {timer}s
                   </div>
                 </div>
               )}
@@ -403,7 +507,7 @@ export default function Checkout() {
               >
                 {loading ? "Processing..." : (
                   <>
-                    {method === "upi" && !qrVisible ? "Generate Secure QR" : "Pay Securely"}
+                    {method === "upi" && upiState !== "waiting" ? "Verify UPI to Proceed" : "Confirm Payment"}
                     <ArrowRight size={18} />
                   </>
                 )}

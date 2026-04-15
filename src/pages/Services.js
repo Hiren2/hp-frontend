@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../api/api";
+import api from "../utils/api"; // 🔥 Ensure this path points to your API instance
 import GlobalLoader from "../components/GlobalLoader";
 import EmptyState from "../components/EmptyState";
 import Toast from "../components/Toast";
@@ -14,7 +14,7 @@ import "swiper/css/effect-fade";
 import "swiper/css/pagination";
 
 import {
-  Star, ShoppingCart, Search, Filter, ArrowRight, CheckCircle, Heart, Zap, Users
+  Star, ShoppingCart, Search, Filter, CheckCircle, Heart, Zap, Users
 } from "lucide-react";
 
 export default function Services() {
@@ -251,9 +251,9 @@ export default function Services() {
             {filtered.map((service, index) => {
               const exists = cart.find((s) => s._id === service._id);
               const isWished = wishlist.includes(service._id); 
-              const imageSrc = service.image || placeholderImages[index % placeholderImages.length];
+              const defaultImage = placeholderImages[index % placeholderImages.length];
+              const imageSrc = service.image || defaultImage;
 
-              // 🔥 USING THE CALCULATED VARIABLES
               const avgRating = service.realAvgRating || 0;
               const totalUsers = service.realTotalReviews || 0;
 
@@ -283,9 +283,15 @@ export default function Services() {
                       />
                     </button>
 
+                    {/* 🔥 IMAGE ERROR FALLBACK (THE FIX) */}
                     <img
                       src={imageSrc}
                       alt={service.name}
+                      onError={(e) => {
+                        // Agar Render ne photo uda di, toh automatically default image dikha dega
+                        e.target.onerror = null; 
+                        e.target.src = defaultImage;
+                      }}
                       className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 ease-in-out"
                     />
                     

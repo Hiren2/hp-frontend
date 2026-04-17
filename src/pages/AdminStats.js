@@ -8,8 +8,9 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 
+// 🔥 THE FIX: Added 'X' to the imports so Vercel doesn't crash!
 import {
-  Users, Layers, Package, Activity, TrendingUp, ShieldAlert, Download, TicketPercent, Plus, Trash2, Edit
+  Users, Layers, Package, Activity, TrendingUp, ShieldAlert, Download, TicketPercent, Plus, Trash2, Edit, X
 } from "lucide-react";
 
 const COLORS = ["#f59e0b", "#10b981", "#f43f5e"]; 
@@ -35,7 +36,6 @@ export default function AdminStats() {
 
     const fetchCoupons = async () => {
       try {
-        // 🔥 ALL COUPONS FETCH FIX
         const res = await api.get("/coupons");
         setCoupons(res.data);
       } catch (err) {
@@ -176,7 +176,6 @@ export default function AdminStats() {
       <Toast message={toast.message} type={toast.type} />
       <div className="max-w-7xl mx-auto mt-8 space-y-6 px-4 pb-12 font-sans antialiased transition-colors duration-300">
         
-        {/* HERO SECTION */}
         <div className="relative bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white p-6 sm:p-8 rounded-[1.5rem] shadow-xl shadow-blue-500/20 overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full mix-blend-overlay filter blur-3xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-400/20 rounded-full mix-blend-overlay filter blur-2xl transform -translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
@@ -202,7 +201,6 @@ export default function AdminStats() {
           </div>
         </div>
 
-        {/* CORE STATS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <StatCard title="Total Users" value={stats.totalUsers} icon={<Users size={20} />} color="blue" />
           <StatCard title="Total Services" value={stats.totalServices} icon={<Layers size={20} />} color="indigo" />
@@ -210,7 +208,6 @@ export default function AdminStats() {
           <StatCard title="Today's Orders" value={stats.todayOrders ?? 0} icon={<Activity size={20} />} color="emerald" />
         </div>
 
-        {/* HEALTH & APPROVAL */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <GlassCard title="Approval Ratio" icon={<TrendingUp size={18} className="text-blue-500" />}>
             <div className="flex items-end gap-3 mt-2">
@@ -225,7 +222,6 @@ export default function AdminStats() {
           </GlassCard>
         </div>
 
-        {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-lg transition-shadow duration-300">
             <h2 className="text-lg font-bold mb-5 flex items-center gap-2 text-slate-800 dark:text-white">
@@ -263,7 +259,6 @@ export default function AdminStats() {
           </div>
         </div>
 
-        {/* LIVE TELEMETRY */}
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-colors mt-5">
           <h2 className="text-lg font-bold mb-5 flex items-center gap-2 text-slate-800 dark:text-white">
             <span className="p-1.5 bg-purple-50 dark:bg-purple-500/10 rounded-md text-purple-600 dark:text-purple-400">⚡</span> Live Telemetry
@@ -378,7 +373,7 @@ export default function AdminStats() {
             ))}
             {coupons.length === 0 && !isAddingCoupon && (
               <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 font-medium">
-                No coupons found. Create one to boost sales!
+                No active coupons found. Create one to boost sales!
               </div>
             )}
           </div>
